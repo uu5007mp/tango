@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>単語テスト</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      margin: 0;
+      background: #f4f6f8;
+      color: #333;
+    }
+    nav {
+      background: #0077cc;
+      color: white;
+      padding: 1em;
+      display: flex;
+      justify-content: space-around;
+      font-weight: bold;
+    }
+    nav a {
+      color: white;
+      text-decoration: none;
+      margin: 0 1em;
+    }
+    nav a:hover {
+      text-decoration: underline;
+    }
+    main {
+      padding: 2em;
+      text-align: center;
+    }
+    select, input[type="text"], button {
+      font-size: 1em;
+      padding: 0.5em;
+      margin: 0.5em;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+    }
+    button {
+      background: #0077cc;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #005fa3;
+    }
+    #nextBtn { display: none; }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <a href="index.html">単語テスト</a>
+    <a href="export.html">単語帳を作る</a>
+  </nav>
+
+  <main>
+    <h1>単語テスト</h1>
+
+    <div id="config">
+      <input type="file" id="fileInput" accept=".txt"><br>
+      <label>出題方向:
+        <select id="modeSelect">
+          <option value="normal">単語 → 意味</option>
+          <option value="reverse">意味 → 単語</option>
+        </select>
+      </label>
+      <br>
+      <label><input type="checkbox" id="shuffle"> ランダム順</label><br>
+      <button onclick="startQuiz()">Start</button>
+    </div>
+
+    <div id="quiz" style="display: none;">
+      <div id="question" style="font-size: 1.3em; margin-bottom: 1em;"></div>
+      <input type="text" id="answer" placeholder="答えを入力"><br>
+      <button id="checkBtn" onclick="checkAnswer()">答え合わせ</button>
+      <button id="nextBtn" onclick="nextQuestion()">次へ</button>
+      <div id="result" style="margin-top: 1em; font-weight: bold;"></div>
+    </div>
+
+    <div id="finish" style="display: none;">
+      <h2>終了！お疲れ様！</h2>
+      <button onclick="resetQuiz()">もう一度</button>
+    </div>
+  </main>
+
+  <script>
+    let words = [];
+    let currentIndex = 0;
+    let quizList = [];
+    let mode = "normal";
+    let answerChecked = false;
+
+    document.getElementById("fileInput").addEventListener("change", function(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        const lines = evt.target.result.split("\n").filter(Boolean);
+        words = lines.map(line => {
+          const [word, meaning] = line.split("\t");
+          return { word, meaning };
+        });
+      };
+      reader.readAsText(file);
+    });
+
+    function startQuiz() {
+      if (words.length === 0) {
+        alert("tango.txt を読み込んでください。");
+        return;
+      }
+      mode = document.getElementById("modeSelect").value;
+      quizList = [...words];
+      if (document.getElementById("shuffle").checked) {
+        quizList.sort(() => Math.random() - 0.5);
+      }
+      currentIndex = 0;
+      document.getElementById("config").style.display = "none";
+      document.getElementById("quiz").style.display = "block";
+      document.getElementById("finish").style.display = "none";
+      showQuestion();
+    }
+
+    function showQuestion() {
+      if (currentIndex >= quizList.length) {
+        document.getElementById("quiz").style.display = "none";
+        document.getElementById("finish").style.display = "block";
+        return;
+      }
+      const q = quizList[currentIndex];
+      const questionText = mode === "reverse" ? q.meaning : q.word;
+      document.getElementById("question").textContent = `Q${currentIndex + 1}: 「${questionText}」の意味は？`;
+      document.getElementById("answer").value = "";
+      document.getElementById("result").textContent = "";
+      document.getElementById("answer").disabled = false;
+      document.getElementById("checkBtn").style.display = "inline-block";
+      document.getElementById("nextBtn").style.display = "none";
+      document.getElementById("answer").focus();
+      answerChecked = false;
+    }
+
+    function checkAnswer() {
+      const input = document.getElementById("answer").value.trim();
+      const correct = mode === "reverse" ? quizList[currentIndex].word : quizList[currentIndex].meaning;
+      const resultEl = document.getElementById("result");
+
+      if (input === correct) {
+        resultEl.textContent = "✅ 正解！";
+        resultEl.style.color = "green";
+      } else {
+        resultEl.textContent = `❌ 不正解。正解は「${correct}」`;
+        resultEl.style.color = "red";
+      }
+
+      document.getElementById("checkBtn").style.display = "none";
+      document.getElementById("nextBtn").style.display = "inline-block";
+      document.getElementById("answer").disabled = true;
+      answerChecked = true;
+    }
+
+    function nextQuestion() {
+      currentIndex++;
+      showQuestion();
+    }
+
+    function resetQuiz() {
+      document.getElementById("config").style.display = "block";
+      document.getElementById("quiz").style.display = "none";
+      document.getElementById("finish").style.display = "none";
+    }
+
+    document.addEventListener("keydown", function(e) {
+      if (e.key !== "Enter") return;
+      if (document.getElementById("quiz").style.display === "none") return;
+      e.preventDefault();
+      if (!answerChecked) {
+        checkAnswer();
+      } else {
+        nextQuestion();
+      }
+    });
+  </script>
+
+</body>
+</html>

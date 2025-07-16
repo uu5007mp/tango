@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>単語帳を作る</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      margin: 0;
+      background: #fdfdfd;
+      color: #333;
+    }
+    nav {
+      background: #cc5500;
+      color: white;
+      padding: 1em;
+      display: flex;
+      justify-content: space-around;
+      font-weight: bold;
+    }
+    nav a {
+      color: white;
+      text-decoration: none;
+    }
+    nav a:hover {
+      text-decoration: underline;
+    }
+    main {
+      padding: 2em;
+      max-width: 700px;
+      margin: auto;
+    }
+    h1 {
+      color: #cc5500;
+    }
+    input[type="text"] {
+      width: 40%;
+      font-size: 1em;
+      padding: 0.5em;
+      margin: 0.5em 0.3em;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+    }
+    button {
+      font-size: 1em;
+      padding: 0.4em 1em;
+      margin: 0.3em;
+      background: #cc5500;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #aa4400;
+    }
+    ul {
+      list-style: none;
+      padding: 0;
+    }
+    li {
+      padding: 0.5em;
+      border-bottom: 1px solid #ddd;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .word-pair input[type="text"] {
+      width: 40%;
+      margin: 0 0.5em;
+    }
+    .actions {
+      display: flex;
+      gap: 0.5em;
+    }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <a href="index.html">単語テスト</a>
+    <a href="export.html">単語帳を作る</a>
+  </nav>
+
+  <main>
+    <h1>単語帳を作る</h1>
+    <p>単語と意味を入力して「追加」してください。編集・削除もできます。</p>
+
+    <div>
+      <input type="text" id="word" placeholder="単語">
+      <input type="text" id="meaning" placeholder="意味">
+      <button onclick="addWord()">追加</button>
+      <button onclick="saveFile()">tango.txt を保存</button>
+    </div>
+
+    <h3>現在の単語リスト</h3>
+    <ul id="wordList"></ul>
+  </main>
+
+  <script>
+    const words = [];
+
+    function renderList() {
+      const list = document.getElementById("wordList");
+      list.innerHTML = "";
+      words.forEach((item, index) => {
+        const li = document.createElement("li");
+        li.innerHTML = `
+          <div class="word-pair">
+            <input type="text" value="${item.word}" onchange="updateWord(${index}, this.value, 'word')">
+            <input type="text" value="${item.meaning}" onchange="updateWord(${index}, this.value, 'meaning')">
+          </div>
+          <div class="actions">
+            <button onclick="deleteWord(${index})">削除</button>
+          </div>
+        `;
+        list.appendChild(li);
+      });
+    }
+
+    function addWord() {
+      const word = document.getElementById("word").value.trim();
+      const meaning = document.getElementById("meaning").value.trim();
+      if (!word || !meaning) {
+        alert("両方入力してください");
+        return;
+      }
+      words.push({ word, meaning });
+      document.getElementById("word").value = "";
+      document.getElementById("meaning").value = "";
+      renderList();
+    }
+
+    function deleteWord(index) {
+      words.splice(index, 1);
+      renderList();
+    }
+
+    function updateWord(index, value, field) {
+      words[index][field] = value;
+    }
+
+    function saveFile() {
+      const content = words.map(item => `${item.word}\t${item.meaning}`).join("\n");
+      const blob = new Blob([content], { type: "text/plain" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "tango.txt";
+      a.click();
+    }
+  </script>
+
+</body>
+</html>
