@@ -29,6 +29,8 @@
     main {
       padding: 2em;
       text-align: center;
+      max-width: 800px;
+      margin: 0 auto;
     }
     select, input[type="text"], button {
       font-size: 1em;
@@ -42,15 +44,25 @@
       color: white;
       border: none;
       cursor: pointer;
+      min-width: 120px;
     }
     button:hover {
       background: #005fa3;
+    }
+    #config > div {
+        margin-bottom: 1em;
     }
     #nextBtn { display: none; }
     #choices button {
       display: block;
       margin: 0.5em auto;
-      width: 60%;
+      width: 80%;
+      max-width: 400px;
+      background: #e9ecef;
+      color: #333;
+    }
+    #choices button:hover {
+      background: #d3d9df;
     }
   </style>
 </head>
@@ -65,29 +77,36 @@
     <h1>単語テスト</h1>
 
     <div id="config">
-      <input type="file" id="fileInput" accept=".txt"><br>
-      <label>出題方向:
-        <select id="modeSelect">
-          <option value="normal">単語 → 意味</option>
-          <option value="reverse">意味 → 単語</option>
-        </select>
-      </label>
-      <br>
-      <label>解答形式:
-        <select id="answerMode">
-          <option value="input">入力式</option>
-          <option value="choice">4択</option>
-        </select>
-      </label>
-      <br>
-      <label>出題範囲:
-        <select id="chunkMode">
-          <option value="all">全部一気に</option>
-          <option value="chunk">10問ごと</option>
-        </select>
-      </label>
-      <br>
-      <label><input type="checkbox" id="shuffle"> ランダム順</label><br>
+      <div>
+        <label for="fileInput">1. 単語ファイル(.txt)を選択:</label><br>
+        <input type="file" id="fileInput" accept=".txt">
+      </div>
+      <div>
+        <label>2. 出題方向:
+          <select id="modeSelect">
+            <option value="normal">単語 → 意味</option>
+            <option value="reverse">意味 → 単語</option>
+          </select>
+        </label>
+      </div>
+      <div>
+        <label>3. 解答形式:
+          <select id="answerMode">
+            <option value="input">入力式</option>
+            <option value="choice">4択</option>
+          </select>
+        </label>
+      </div>
+      <div>
+        <label>4. 出題範囲:
+          <select id="rangeSelect">
+            <option value="all">全部</option>
+          </select>
+        </label>
+      </div>
+      <div>
+        <label><input type="checkbox" id="shuffle"> 5. ランダム順で出題</label><br>
+      </div>
       <button onclick="startQuiz()">Start</button>
     </div>
 
@@ -111,44 +130,66 @@
     let currentIndex = 0;
     let quizList = [];
     let mode = "normal";
-    let answerChecked = false;
-
     let answerMode = "input";
-    let chunkMode = "all";
+    let selectedRange = "all";
+    let questionOffset = 0; // 問題番号の開始位置を記憶
+    let answerChecked = false;
     const chunkSize = 10;
-    let currentChunk = 0;
 
     document.getElementById("fileInput").addEventListener("change", function(e) {
       const file = e.target.files[0];
       if (!file) return;
       const reader = new FileReader();
       reader.onload = function(evt) {
-        const lines = evt.target.result.split("\n").filter(Boolean);
+        const lines = evt.target.result.split("\n").filter(line => line.trim() !== "");
         words = lines.map(line => {
-          const [word, meaning] = line.split("\t");
-          return { word, meaning };
+          const parts = line.split("\t");
+          return { word: parts[0] || "", meaning: parts[1] || "" };
         });
+
+        // 出題範囲の選択肢を自動生成
+        const rangeSelect = document.getElementById("rangeSelect");
+        rangeSelect.innerHTML = `<option value="all">全部</option>`; // 初期化
+        for (let i = 0; i < words.length; i += chunkSize) {
+          const start = i + 1;
+          const end = Math.min(i + chunkSize, words.length);
+          const opt = document.createElement("option");
+          opt.value = `${start}-${end}`;
+          opt.textContent = `${start}〜${end}`;
+          rangeSelect.appendChild(opt);
+        }
       };
       reader.readAsText(file);
     });
 
     function startQuiz() {
       if (words.length === 0) {
-        alert("tango.txt を読み込んでください。");
+        alert("単語ファイルを読み込んでください。");
         return;
       }
       mode = document.getElementById("modeSelect").value;
       answerMode = document.getElementById("answerMode").value;
-      chunkMode = document.getElementById("chunkMode").value;
+      selectedRange = document.getElementById("rangeSelect").value;
 
+      // まず全単語をコピー
       quizList = [...words];
-      if (document.getElementById("shuffle").checked) {
-        quizList.sort(() => Math.random() - 0.5);
+      questionOffset = 0; // デフォルトのオフセットは0
+
+      // 範囲選択に基づいてリストを切り出す
+      if (selectedRange !== "all") {
+        const [start, end] = selectedRange.split("-").map(Number);
+        quizList = quizList.slice(start - 1, end);
+        questionOffset = start - 1; // 問題番号のオフセットを設定
       }
 
+      // 範囲決定後にシャッフル（必要な場合）
+      if (document.getElementById("shuffle").checked) {
+        quizList.sort(() => Math.random() - 0.5);
+        // シャッフルした場合、問題番号は範囲と無関係になるためリセット
+        questionOffset = 0;
+      }
+      
       currentIndex = 0;
-      currentChunk = 0;
-
       document.getElementById("config").style.display = "none";
       document.getElementById("quiz").style.display = "block";
       document.getElementById("finish").style.display = "none";
@@ -156,49 +197,45 @@
     }
 
     function showQuestion() {
-      let endIndex = quizList.length;
-      if (chunkMode === "chunk") {
-        endIndex = Math.min((currentChunk + 1) * chunkSize, quizList.length);
-      }
-
-      if (currentIndex >= endIndex) {
+      if (currentIndex >= quizList.length) {
         document.getElementById("quiz").style.display = "none";
+        document.getElementById("finish").innerHTML = `<h2>終了！お疲れ様！</h2><button onclick="resetQuiz()">もう一度</button>`;
         document.getElementById("finish").style.display = "block";
-        if (chunkMode === "chunk" && endIndex < quizList.length) {
-          document.getElementById("finish").innerHTML =
-            `<h2>${endIndex}問終了！</h2><button onclick="nextChunk()">次の10問へ</button>`;
-        }
         return;
       }
 
       const q = quizList[currentIndex];
       const questionText = mode === "reverse" ? q.meaning : q.word;
+      // オフセットを使って問題番号を表示
+      const displayQuestionNumber = currentIndex + 1 + questionOffset;
       document.getElementById("question").textContent =
-        `Q${currentIndex + 1}: 「${questionText}」の意味は？`;
+        `Q${displayQuestionNumber}: 「${questionText}」`;
 
       document.getElementById("result").textContent = "";
+      answerChecked = false;
 
       if (answerMode === "input") {
-        // 入力式
         document.getElementById("answer").style.display = "inline-block";
         document.getElementById("checkBtn").style.display = "inline-block";
         document.getElementById("nextBtn").style.display = "none";
         document.getElementById("choices").innerHTML = "";
         document.getElementById("answer").value = "";
         document.getElementById("answer").disabled = false;
-        answerChecked = false;
-      } else {
-        // 4択式
+        document.getElementById("answer").focus();
+      } else { // 4択式
         document.getElementById("answer").style.display = "none";
         document.getElementById("checkBtn").style.display = "none";
         document.getElementById("nextBtn").style.display = "none";
 
         const correct = mode === "reverse" ? q.word : q.meaning;
         let choices = [correct];
-        while (choices.length < 4) {
-          const rand = quizList[Math.floor(Math.random() * quizList.length)];
+        // ダミーの選択肢を words 全体から探す
+        while (choices.length < 4 && choices.length < words.length) {
+          const rand = words[Math.floor(Math.random() * words.length)];
           const choice = mode === "reverse" ? rand.word : rand.meaning;
-          if (!choices.includes(choice)) choices.push(choice);
+          if (!choices.includes(choice)) {
+            choices.push(choice);
+          }
         }
         choices.sort(() => Math.random() - 0.5);
 
@@ -214,6 +251,8 @@
     }
 
     function checkAnswer(selected = null) {
+      if(answerChecked) return;
+
       const q = quizList[currentIndex];
       const correct = mode === "reverse" ? q.word : q.meaning;
       const input = answerMode === "input"
@@ -228,14 +267,15 @@
         resultEl.textContent = `❌ 不正解。正解は「${correct}」`;
         resultEl.style.color = "red";
       }
+      
+      answerChecked = true;
 
       if (answerMode === "input") {
         document.getElementById("checkBtn").style.display = "none";
         document.getElementById("nextBtn").style.display = "inline-block";
         document.getElementById("answer").disabled = true;
-        answerChecked = true;
-      } else {
-        // 4択は答えたら自動で次へ
+      } else { // 4択は答えたら1秒後に自動で次へ
+        Array.from(document.getElementById("choices").children).forEach(btn => btn.disabled = true);
         setTimeout(nextQuestion, 1000);
       }
     }
@@ -251,19 +291,12 @@
       document.getElementById("finish").style.display = "none";
     }
 
-    function nextChunk() {
-      currentChunk++;
-      currentIndex = currentChunk * chunkSize;
-      document.getElementById("finish").style.display = "none";
-      document.getElementById("quiz").style.display = "block";
-      showQuestion();
-    }
-
     document.addEventListener("keydown", function(e) {
       if (e.key !== "Enter") return;
       if (document.getElementById("quiz").style.display === "none") return;
-      e.preventDefault();
+
       if (answerMode === "input") {
+        e.preventDefault();
         if (!answerChecked) {
           checkAnswer();
         } else {
@@ -274,4 +307,4 @@
   </script>
 
 </body>
-</html>
+</html>```
