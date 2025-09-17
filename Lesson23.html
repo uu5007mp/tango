@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>単語テスト</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      margin: 0;
+      background: #f4f6f8;
+      color: #333;
+    }
+    nav {
+      background: #0077cc;
+      color: white;
+      padding: 1em;
+      display: flex;
+      justify-content: space-around;
+      font-weight: bold;
+    }
+    nav a {
+      color: white;
+      text-decoration: none;
+      margin: 0 1em;
+    }
+    nav a:hover {
+      text-decoration: underline;
+    }
+    main {
+      padding: 2em;
+      text-align: center;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    select, input[type="text"], button {
+      font-size: 1em;
+      padding: 0.5em;
+      margin: 0.5em;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+    }
+    button {
+      background: #0077cc;
+      color: white;
+      border: none;
+      cursor: pointer;
+      min-width: 120px;
+    }
+    button:hover {
+      background: #005fa3;
+    }
+    #config > div {
+        margin-bottom: 1em;
+    }
+    #nextBtn { display: none; }
+    #choices button {
+      display: block;
+      margin: 0.5em auto;
+      width: 80%;
+      max-width: 400px;
+      background: #e9ecef;
+      color: #333;
+    }
+    #choices button:hover {
+      background: #d3d9df;
+    }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <a href="index.html">単語テスト</a>
+    <a href="export.html">単語帳を作る</a>
+  </nav>
+
+  <main>
+    <h1>単語テスト</h1>
+
+    <div id="config">
+      <div>
+        <label>1. レッスンを選択:</label><br>
+        <select id="lessonSelect">
+          <option value="lesson2">レッスン2</option>
+          <option value="lesson3">レッスン3</option>
+          <option value="lesson23">レッスン23</option>
+        </select>
+      </div>
+      <div>
+        <label>2. 出題方向:
+          <select id="modeSelect">
+            <option value="normal">単語 → 意味</option>
+            <option value="reverse">意味 → 単語</option>
+          </select>
+        </label>
+      </div>
+      <div>
+        <label>3. 解答形式:
+          <select id="answerMode">
+            <option value="input">入力式</option>
+            <option value="choice">4択</option>
+          </select>
+        </label>
+      </div>
+      <div>
+        <label>4. 出題範囲:
+          <select id="rangeSelect">
+            <option value="all">全部</option>
+          </select>
+        </label>
+      </div>
+      <div>
+        <label><input type="checkbox" id="shuffle"> 5. ランダム順で出題</label><br>
+      </div>
+      <button onclick="startQuiz()">Start</button>
+    </div>
+
+    <div id="quiz" style="display: none;">
+      <div id="question" style="font-size: 1.3em; margin-bottom: 1em;"></div>
+      <input type="text" id="answer" placeholder="答えを入力"><br>
+      <div id="choices"></div>
+      <button id="checkBtn" onclick="checkAnswer()">答え合わせ</button>
+      <button id="nextBtn" onclick="nextQuestion()">次へ</button>
+      <div id="result" style="margin-top: 1em; font-weight: bold;"></div>
+    </div>
+
+    <div id="finish" style="display: none;">
+      <h2>終了！お疲れ様！</h2>
+      <button onclick="resetQuiz()">もう一度</button>
+    </div>
+  </main>
+
+  <script>
+    // 3つのレッスンデータを直接オブジェクトとして保持
+    const wordData = {
+      'lesson2': [
+        { word: 'ambassador', meaning: '大使' }, { word: 'any more', meaning: 'もはや，これ以上（否定文・疑問文で）' },
+        { word: 'appear', meaning: '現れる、登場する' }, { word: 'area', meaning: '地域' },
+        { word: 'attract', meaning: '～を引きつける' }, { word: 'between A and B', meaning: 'AとBの間の' },
+        { word: 'campaign', meaning: '運動' }, { word: 'cathedral', meaning: '大聖堂' },
+        { word: 'character', meaning: 'キャラクター' }, { word: 'cheer', meaning: '～を応援する' },
+        { word: 'come from ～', meaning: '～の出身である' }, { word: 'damage', meaning: '損害を与える' },
+        { word: 'decide', meaning: '～を決める' }, { word: 'disappear', meaning: '消える' },
+        { word: 'earthquake', meaning: '地震' }, { word: 'fire', meaning: '火災' },
+        { word: 'for free', meaning: '無料で' }, { word: 'fund-raising', meaning: '募金活動' },
+        { word: 'goods', meaning: '商品' }, { word: 'government', meaning: '政府' },
+        { word: 'I see.', meaning: 'なるほど。' }, { word: 'image', meaning: '画像' },
+        { word: 'kindness', meaning: '親切' }, { word: 'link', meaning: 'つながり' },
+        { word: 'market', meaning: '市場' }, { word: 'mascot', meaning: 'マスコット' },
+        { word: 'official', meaning: '職員、公式の' }, { word: 'popular', meaning: '人気のある' },
+        { word: 'post', meaning: '～を投稿する' }, { word: 'prefecture', meaning: '都道府県' },
+        { word: 'promote', meaning: '～を宣伝する' }, { word: 'repair', meaning: '～を修復する' },
+        { word: 'resemble', meaning: '～に似ている' }, { word: 'sadness', meaning: '悲しみ' },
+        { word: 'secret', meaning: '秘訣' }, { word: 'social media', meaning: 'ソーシャルメディア' },
+        { word: 'successful', meaning: '成功した' }, { word: 'support', meaning: '～を支援する' },
+        { word: 'tax', meaning: '税金' }, { word: 'tourist', meaning: '観光客' },
+        { word: 'unique', meaning: '独特な' }, { word: 'phantom', meaning: '幻' },
+        { word: 'in a very short time', meaning: 'とても短期間で' }, { word: 'waste', meaning: '～を浪費する' },
+        { word: 'wonder', meaning: '～を不思議に思う' }
+      ],
+      'lesson3': [
+        { word: 'A rather than B', meaning: 'BよりもむしろA' }, { word: 'absolute', meaning: '絶対的な' },
+        { word: 'analyze', meaning: '～を分析する' }, { word: 'as well', meaning: '～もまた' },
+        { word: 'atmosphere', meaning: '雰囲気' }, { word: 'both A and B', meaning: 'AもBも両方とも' },
+        { word: 'carry out', meaning: '～を実行する' }, { word: 'checklist', meaning: 'チェックリスト' },
+        { word: 'consider', meaning: '～を考慮する　～を熟考する' }, { word: 'cooperation', meaning: '協力' },
+        { word: 'criticism', meaning: '批判' }, { word: 'decision', meaning: '決定' },
+        { word: 'depend on ～', meaning: '～に依存する' }, { word: 'directly', meaning: '直接に' },
+        { word: 'direction', meaning: '指示、命令' }, { word: 'disagree', meaning: '反対する' },
+        { word: 'excellent', meaning: 'すばらしい' }, { word: 'feelings', meaning: '感情' },
+        { word: 'flexible', meaning: '柔軟な' }, { word: 'follow', meaning: '～に従う' },
+        { word: 'goal', meaning: '目標' }, { word: 'gorilla', meaning: 'ゴリラ' },
+        { word: 'imagine', meaning: '～を想像する' }, { word: 'leadership', meaning: 'リーダーシップ　指導力' },
+        { word: 'long-term', meaning: '長期的な' }, { word: 'male', meaning: '男性' },
+        { word: 'manner', meaning: 'ふるまい、態度' }, { word: 'monkey', meaning: 'サル' },
+        { word: 'motivation', meaning: 'やる気' }, { word: 'organization', meaning: '組織' },
+        { word: 'perform', meaning: '～を演奏する' }, { word: 'point out ～', meaning: '～を指摘する' },
+        { word: 'poor', meaning: '良くない　不十分' }, { word: 'role model', meaning: '模範' },
+        { word: 'rule', meaning: '～を支配する' }, { word: 'set (a goal)', meaning: '（目標を）設定する' },
+        { word: 'share', meaning: '～を共有する' }, { word: 'short-term', meaning: '短期的な' },
+        { word: 'situation', meaning: '状況' }, { word: 'human society', meaning: '人間社会' },
+        { word: 'so-so', meaning: 'まあまあの' }, { word: 'strategy', meaning: '戦略' },
+        { word: 'task', meaning: '仕事' }, { word: 'threaten', meaning: '～を脅す' },
+        { word: 'trust', meaning: '～を信頼する' }, { word: 'will (名詞)', meaning: '意志' }
+      ],
+      'lesson23': [
+        { word: 'ambassador', meaning: '大使' }, { word: 'any more', meaning: 'もはや，これ以上（否定文・疑問文で）' },
+        { word: 'appear', meaning: '現れる、登場する' }, { word: 'area', meaning: '地域' },
+        { word: 'attract', meaning: '～を引きつける' }, { word: 'between A and B', meaning: 'AとBの間の' },
+        { word: 'campaign', meaning: '運動' }, { word: 'cathedral', meaning: '大聖堂' },
+        { word: 'character', meaning: 'キャラクター' }, { word: 'cheer', meaning: '～を応援する' },
+        { word: 'come from ～', meaning: '～の出身である' }, { word: 'damage', meaning: '損害を与える' },
+        { word: 'decide', meaning: '～を決める' }, { word: 'disappear', meaning: '消える' },
+        { word: 'earthquake', meaning: '地震' }, { word: 'fire', meaning: '火災' },
+        { word: 'for free', meaning: '無料で' }, { word: 'fund-raising', meaning: '募金活動' },
+        { word: 'goods', meaning: '商品' }, { word: 'government', meaning: '政府' },
+        { word: 'I see.', meaning: 'なるほど。' }, { word: 'image', meaning: '画像' },
+        { word: 'kindness', meaning: '親切' }, { word: 'link', meaning: 'つながり' },
+        { word: 'market', meaning: '市場' }, { word: 'mascot', meaning: 'マスコット' },
+        { word: 'official', meaning: '職員、公式の' }, { word: 'popular', meaning: '人気のある' },
+        { word: 'post', meaning: '～を投稿する' }, { word: 'prefecture', meaning: '都道府県' },
+        { word: 'promote', meaning: '～を宣伝する' }, { word: 'repair', meaning: '～を修復する' },
+        { word: 'resemble', meaning: '～に似ている' }, { word: 'sadness', meaning: '悲しみ' },
+        { word: 'secret', meaning: '秘訣' }, { word: 'social media', meaning: 'ソーシャルメディア' },
+        { word: 'successful', meaning: '成功した' }, { word: 'support', meaning: '～を支援する' },
+        { word: 'tax', meaning: '税金' }, { word: 'tourist', meaning: '観光客' },
+        { word: 'unique', meaning: '独特な' }, { word: 'phantom', meaning: '幻' },
+        { word: 'in a very short time', meaning: 'とても短期間で' }, { word: 'waste', meaning: '～を浪費する' },
+        { word: 'wonder', meaning: '～を不思議に思う' }, { word: 'A rather than B', meaning: 'BよりもむしろA' },
+        { word: 'absolute', meaning: '絶対的な' }, { word: 'analyze', meaning: '～を分析する' },
+        { word: 'as well', meaning: '～もまた' }, { word: 'atmosphere', meaning: '雰囲気' },
+        { word: 'both A and B', meaning: 'AもBも両方とも' }, { word: 'carry out', meaning: '～を実行する' },
+        { word: 'checklist', meaning: 'チェックリスト' }, { word: 'consider', meaning: '～を考慮する　～を熟考する' },
+        { word: 'cooperation', meaning: '協力' }, { word: 'criticism', meaning: '批判' },
+        { word: 'decision', meaning: '決定' }, { word: 'depend on ～', meaning: '～に依存する' },
+        { word: 'directly', meaning: '直接に' }, { word: 'direction', meaning: '指示、命令' },
+        { word: 'disagree', meaning: '反対する' }, { word: 'excellent', meaning: 'すばらしい' },
+        { word: 'feelings', meaning: '感情' }, { word: 'flexible', meaning: '柔軟な' },
+        { word: 'follow', meaning: '～に従う' }, { word: 'goal', meaning: '目標' },
+        { word: 'gorilla', meaning: 'ゴリラ' }, { word: 'imagine', meaning: '～を想像する' },
+        { word: 'leadership', meaning: 'リーダーシップ　指導力' }, { word: 'long-term', meaning: '長期的な' },
+        { word: 'male', meaning: '男性' }, { word: 'manner', meaning: 'ふるまい、態度' },
+        { word: 'monkey', meaning: 'サル' }, { word: 'motivation', meaning: 'やる気' },
+        { word: 'organization', meaning: '組織' }, { word: 'perform', meaning: '～を演奏する' },
+        { word: 'point out ～', meaning: '～を指摘する' }, { word: 'poor', meaning: '良くない　不十分' },
+        { word: 'role model', meaning: '模範' }, { word: 'rule', meaning: '～を支配する' },
+        { word: 'set (a goal)', meaning: '（目標を）設定する' }, { word: 'share', meaning: '～を共有する' },
+        { word: 'short-term', meaning: '短期的な' }, { word: 'situation', meaning: '状況' },
+        { word: 'human society', meaning: '人間社会' }, { word: 'so-so', meaning: 'まあまあの' },
+        { word: 'strategy', meaning: '戦略' }, { word: 'task', meaning: '仕事' },
+        { word: 'threaten', meaning: '～を脅す' }, { word: 'trust', meaning: '～を信頼する' },
+        { word: 'will (名詞)', meaning: '意志' }
+      ]
+    };
+
+    let words = []; // 現在選択中のレッスンの単語リスト
+    let quizList = [];
+    let currentIndex = 0;
+    let mode = "normal";
+    let answerMode = "input";
+    let selectedRange = "all";
+    let questionOffset = 0;
+    let answerChecked = false;
+    const chunkSize = 10;
+    
+    const lessonSelect = document.getElementById("lessonSelect");
+    const rangeSelect = document.getElementById("rangeSelect");
+
+    // レッスン選択時に範囲選択肢を動的に生成する関数
+    function updateRangeOptions() {
+      const selectedLesson = lessonSelect.value;
+      const currentWords = wordData[selectedLesson];
+      
+      rangeSelect.innerHTML = `<option value="all">全部</option>`; // 初期化
+      for (let i = 0; i < currentWords.length; i += chunkSize) {
+        const start = i + 1;
+        const end = Math.min(i + chunkSize, currentWords.length);
+        const opt = document.createElement("option");
+        opt.value = `${start}-${end}`;
+        opt.textContent = `${start}〜${end}`;
+        rangeSelect.appendChild(opt);
+      }
+    }
+
+    // ページ読み込み時とレッスン選択時にイベントを設定
+    window.onload = () => {
+      lessonSelect.addEventListener("change", updateRangeOptions);
+      updateRangeOptions(); // 初期表示
+    };
+
+    function startQuiz() {
+      const selectedLesson = lessonSelect.value;
+      words = wordData[selectedLesson];
+
+      if (!words || words.length === 0) {
+        alert("レッスンデータがありません。");
+        return;
+      }
+      
+      mode = document.getElementById("modeSelect").value;
+      answerMode = document.getElementById("answerMode").value;
+      selectedRange = document.getElementById("rangeSelect").value;
+
+      quizList = [...words];
+      questionOffset = 0; 
+
+      if (selectedRange !== "all") {
+        const [start, end] = selectedRange.split("-").map(Number);
+        quizList = quizList.slice(start - 1, end);
+        questionOffset = start - 1;
+      }
+
+      if (document.getElementById("shuffle").checked) {
+        quizList.sort(() => Math.random() - 0.5);
+        questionOffset = 0;
+      }
+      
+      currentIndex = 0;
+      document.getElementById("config").style.display = "none";
+      document.getElementById("quiz").style.display = "block";
+      document.getElementById("finish").style.display = "none";
+      showQuestion();
+    }
+
+    function showQuestion() {
+      if (currentIndex >= quizList.length) {
+        document.getElementById("quiz").style.display = "none";
+        document.getElementById("finish").innerHTML = `<h2>終了！お疲れ様！</h2><button onclick="resetQuiz()">もう一度</button>`;
+        document.getElementById("finish").style.display = "block";
+        return;
+      }
+
+      const q = quizList[currentIndex];
+      const questionText = mode === "reverse" ? q.meaning : q.word;
+      const displayQuestionNumber = currentIndex + 1 + questionOffset;
+      document.getElementById("question").textContent =
+        `Q${displayQuestionNumber}: 「${questionText}」`;
+
+      document.getElementById("result").textContent = "";
+      answerChecked = false;
+
+      if (answerMode === "input") {
+        document.getElementById("answer").style.display = "inline-block";
+        document.getElementById("checkBtn").style.display = "inline-block";
+        document.getElementById("nextBtn").style.display = "none";
+        document.getElementById("choices").innerHTML = "";
+        document.getElementById("answer").value = "";
+        document.getElementById("answer").disabled = false;
+        document.getElementById("answer").focus();
+      } else { 
+        document.getElementById("answer").style.display = "none";
+        document.getElementById("checkBtn").style.display = "none";
+        document.getElementById("nextBtn").style.display = "none";
+
+        const correct = mode === "reverse" ? q.word : q.meaning;
+        let choices = [correct];
+        // words（全単語リスト）からダミーを抽選
+        while (choices.length < 4 && choices.length < words.length) {
+          const rand = words[Math.floor(Math.random() * words.length)];
+          const choice = mode === "reverse" ? rand.word : rand.meaning;
+          if (!choices.includes(choice)) {
+            choices.push(choice);
+          }
+        }
+        choices.sort(() => Math.random() - 0.5);
+
+        const choicesDiv = document.getElementById("choices");
+        choicesDiv.innerHTML = "";
+        choices.forEach(c => {
+          const btn = document.createElement("button");
+          btn.textContent = c;
+          btn.onclick = () => checkAnswer(c);
+          choicesDiv.appendChild(btn);
+        });
+      }
+    }
+
+    function checkAnswer(selected = null) {
+      if(answerChecked) return;
+
+      const q = quizList[currentIndex];
+      const correct = mode === "reverse" ? q.word : q.meaning;
+      const input = answerMode === "input"
+        ? document.getElementById("answer").value.trim()
+        : selected;
+
+      const resultEl = document.getElementById("result");
+      if (input === correct) {
+        resultEl.textContent = "✅ 正解！";
+        resultEl.style.color = "green";
+      } else {
+        resultEl.textContent = `❌ 不正解。正解は「${correct}」`;
+        resultEl.style.color = "red";
+      }
+      
+      answerChecked = true;
+
+      if (answerMode === "input") {
+        document.getElementById("checkBtn").style.display = "none";
+        document.getElementById("nextBtn").style.display = "inline-block";
+        document.getElementById("answer").disabled = true;
+      } else {
+        Array.from(document.getElementById("choices").children).forEach(btn => btn.disabled = true);
+        setTimeout(nextQuestion, 1000);
+      }
+    }
+
+    function nextQuestion() {
+      currentIndex++;
+      showQuestion();
+    }
+
+    function resetQuiz() {
+      document.getElementById("config").style.display = "block";
+      document.getElementById("quiz").style.display = "none";
+      document.getElementById("finish").style.display = "none";
+    }
+
+    document.addEventListener("keydown", function(e) {
+      if (e.key !== "Enter") return;
+      if (document.getElementById("quiz").style.display === "none") return;
+
+      if (answerMode === "input") {
+        e.preventDefault();
+        if (!answerChecked) {
+          checkAnswer();
+        } else {
+          nextQuestion();
+        }
+      }
+    });
+  </script>
+
+</body>
+</html>
