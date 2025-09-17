@@ -47,6 +47,11 @@
       background: #005fa3;
     }
     #nextBtn { display: none; }
+    #choices button {
+      display: block;
+      margin: 0.5em auto;
+      width: 60%;
+    }
   </style>
 </head>
 <body>
@@ -68,6 +73,20 @@
         </select>
       </label>
       <br>
+      <label>解答形式:
+        <select id="answerMode">
+          <option value="input">入力式</option>
+          <option value="choice">4択</option>
+        </select>
+      </label>
+      <br>
+      <label>出題範囲:
+        <select id="chunkMode">
+          <option value="all">全部一気に</option>
+          <option value="chunk">10問ごと</option>
+        </select>
+      </label>
+      <br>
       <label><input type="checkbox" id="shuffle"> ランダム順</label><br>
       <button onclick="startQuiz()">Start</button>
     </div>
@@ -75,6 +94,7 @@
     <div id="quiz" style="display: none;">
       <div id="question" style="font-size: 1.3em; margin-bottom: 1em;"></div>
       <input type="text" id="answer" placeholder="答えを入力"><br>
+      <div id="choices"></div>
       <button id="checkBtn" onclick="checkAnswer()">答え合わせ</button>
       <button id="nextBtn" onclick="nextQuestion()">次へ</button>
       <div id="result" style="margin-top: 1em; font-weight: bold;"></div>
@@ -92,6 +112,11 @@
     let quizList = [];
     let mode = "normal";
     let answerChecked = false;
+
+    let answerMode = "input";
+    let chunkMode = "all";
+    const chunkSize = 10;
+    let currentChunk = 0;
 
     document.getElementById("fileInput").addEventListener("change", function(e) {
       const file = e.target.files[0];
@@ -113,11 +138,17 @@
         return;
       }
       mode = document.getElementById("modeSelect").value;
+      answerMode = document.getElementById("answerMode").value;
+      chunkMode = document.getElementById("chunkMode").value;
+
       quizList = [...words];
       if (document.getElementById("shuffle").checked) {
         quizList.sort(() => Math.random() - 0.5);
       }
+
       currentIndex = 0;
+      currentChunk = 0;
+
       document.getElementById("config").style.display = "none";
       document.getElementById("quiz").style.display = "block";
       document.getElementById("finish").style.display = "none";
@@ -125,28 +156,71 @@
     }
 
     function showQuestion() {
-      if (currentIndex >= quizList.length) {
+      let endIndex = quizList.length;
+      if (chunkMode === "chunk") {
+        endIndex = Math.min((currentChunk + 1) * chunkSize, quizList.length);
+      }
+
+      if (currentIndex >= endIndex) {
         document.getElementById("quiz").style.display = "none";
         document.getElementById("finish").style.display = "block";
+        if (chunkMode === "chunk" && endIndex < quizList.length) {
+          document.getElementById("finish").innerHTML =
+            `<h2>${endIndex}問終了！</h2><button onclick="nextChunk()">次の10問へ</button>`;
+        }
         return;
       }
+
       const q = quizList[currentIndex];
       const questionText = mode === "reverse" ? q.meaning : q.word;
-      document.getElementById("question").textContent = `Q${currentIndex + 1}: 「${questionText}」の意味は？`;
-      document.getElementById("answer").value = "";
+      document.getElementById("question").textContent =
+        `Q${currentIndex + 1}: 「${questionText}」の意味は？`;
+
       document.getElementById("result").textContent = "";
-      document.getElementById("answer").disabled = false;
-      document.getElementById("checkBtn").style.display = "inline-block";
-      document.getElementById("nextBtn").style.display = "none";
-      document.getElementById("answer").focus();
-      answerChecked = false;
+
+      if (answerMode === "input") {
+        // 入力式
+        document.getElementById("answer").style.display = "inline-block";
+        document.getElementById("checkBtn").style.display = "inline-block";
+        document.getElementById("nextBtn").style.display = "none";
+        document.getElementById("choices").innerHTML = "";
+        document.getElementById("answer").value = "";
+        document.getElementById("answer").disabled = false;
+        answerChecked = false;
+      } else {
+        // 4択式
+        document.getElementById("answer").style.display = "none";
+        document.getElementById("checkBtn").style.display = "none";
+        document.getElementById("nextBtn").style.display = "none";
+
+        const correct = mode === "reverse" ? q.word : q.meaning;
+        let choices = [correct];
+        while (choices.length < 4) {
+          const rand = quizList[Math.floor(Math.random() * quizList.length)];
+          const choice = mode === "reverse" ? rand.word : rand.meaning;
+          if (!choices.includes(choice)) choices.push(choice);
+        }
+        choices.sort(() => Math.random() - 0.5);
+
+        const choicesDiv = document.getElementById("choices");
+        choicesDiv.innerHTML = "";
+        choices.forEach(c => {
+          const btn = document.createElement("button");
+          btn.textContent = c;
+          btn.onclick = () => checkAnswer(c);
+          choicesDiv.appendChild(btn);
+        });
+      }
     }
 
-    function checkAnswer() {
-      const input = document.getElementById("answer").value.trim();
-      const correct = mode === "reverse" ? quizList[currentIndex].word : quizList[currentIndex].meaning;
-      const resultEl = document.getElementById("result");
+    function checkAnswer(selected = null) {
+      const q = quizList[currentIndex];
+      const correct = mode === "reverse" ? q.word : q.meaning;
+      const input = answerMode === "input"
+        ? document.getElementById("answer").value.trim()
+        : selected;
 
+      const resultEl = document.getElementById("result");
       if (input === correct) {
         resultEl.textContent = "✅ 正解！";
         resultEl.style.color = "green";
@@ -155,10 +229,15 @@
         resultEl.style.color = "red";
       }
 
-      document.getElementById("checkBtn").style.display = "none";
-      document.getElementById("nextBtn").style.display = "inline-block";
-      document.getElementById("answer").disabled = true;
-      answerChecked = true;
+      if (answerMode === "input") {
+        document.getElementById("checkBtn").style.display = "none";
+        document.getElementById("nextBtn").style.display = "inline-block";
+        document.getElementById("answer").disabled = true;
+        answerChecked = true;
+      } else {
+        // 4択は答えたら自動で次へ
+        setTimeout(nextQuestion, 1000);
+      }
     }
 
     function nextQuestion() {
@@ -172,14 +251,24 @@
       document.getElementById("finish").style.display = "none";
     }
 
+    function nextChunk() {
+      currentChunk++;
+      currentIndex = currentChunk * chunkSize;
+      document.getElementById("finish").style.display = "none";
+      document.getElementById("quiz").style.display = "block";
+      showQuestion();
+    }
+
     document.addEventListener("keydown", function(e) {
       if (e.key !== "Enter") return;
       if (document.getElementById("quiz").style.display === "none") return;
       e.preventDefault();
-      if (!answerChecked) {
-        checkAnswer();
-      } else {
-        nextQuestion();
+      if (answerMode === "input") {
+        if (!answerChecked) {
+          checkAnswer();
+        } else {
+          nextQuestion();
+        }
       }
     });
   </script>
